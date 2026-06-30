@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import re
 import sys
 import zipfile
@@ -145,6 +146,9 @@ def fetch_acs(cfg: dict[str, Any]) -> pd.DataFrame:
             try:
                 print(f"Downloading ACS profile {year}: {profile_base}")
                 params = {"get": ",".join(profile_vars), "for": "county:*"}
+                census_key = os.getenv("CENSUS_API_KEY")
+                if census_key:
+                    params["key"] = census_key
                 res = requests.get(profile_base, params=params, timeout=180)
                 res.raise_for_status()
                 data = res.json()
@@ -169,6 +173,9 @@ def fetch_acs(cfg: dict[str, Any]) -> pd.DataFrame:
                     detail_vars = ["NAME", "B08201_002E", "B08201_001E", "B28002_013E", "B28002_001E"]
                     print(f"Downloading ACS detail {year}: {detail_base}")
                     params2 = {"get": ",".join(detail_vars), "for": "county:*"}
+                    census_key = os.getenv("CENSUS_API_KEY")
+                    if census_key:
+                        params2["key"] = census_key
                     res2 = requests.get(detail_base, params=params2, timeout=180)
                     res2.raise_for_status()
                     data2 = res2.json()
