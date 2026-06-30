@@ -27,7 +27,9 @@ jobs:
           pip install -r scripts/requirements.txt
 
       - name: Build dashboard data
-        run: python scripts/build_data.py
+  run: python scripts/build_data.py
+  env:
+    CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
 
       - name: Commit updated data
         uses: stefanzweifel/git-auto-commit-action@v5
