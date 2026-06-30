@@ -1,0 +1,12 @@
+variable,description
+county_fips,5-digit county FIPS code
+county_name,County name
+state,State abbreviation
+lat,County representative latitude
+lon,County representative longitude
+climate_hazard_burden,Percentile-based climate/natural hazard score
+air_pollution_exposure,Percentile-based air pollution score
+health_vulnerability,Percentile-based health vulnerability score
+adaptive_capacity_deficit,Percentile-based adaptive capacity deficit score
+ehagi,Environmental Health Adaptation Gap Index
+priority_group,Policy screening category

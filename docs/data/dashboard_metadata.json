@@ -1,0 +1,6 @@
+{
+  "built_at_utc": "demo-preview",
+  "rows": 10,
+  "interpretation": "Demo preview data only. Run the GitHub Action to pull current public datasets.",
+  "warnings": ["This file is a preview placeholder. Do not cite it as empirical results."]
+}

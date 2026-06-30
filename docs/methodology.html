@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Methodology | Environmental Health Adaptation Gap Dashboard</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <header class="hero small">
+    <div>
+      <p class="eyebrow">Methodology</p>
+      <h1>Environmental Health Adaptation Gap Index</h1>
+      <p class="subtitle">A county-level screening index for identifying where environmental-health risks overlap with weaker adaptive capacity.</p>
+    </div>
+    <div class="hero-card"><a href="index.html">Back to dashboard</a></div>
+  </header>
+
+  <main class="methodology">
+    <section class="panel">
+      <h2>1. Research objective</h2>
+      <p>This dashboard identifies U.S. counties where climate/natural hazard burden, air pollution exposure, health vulnerability, and weaker adaptive capacity overlap. The goal is to highlight counties that may deserve closer attention for climate adaptation, environmental-health preparedness, and public-health investment.</p>
+    </section>
+
+    <section class="panel">
+      <h2>2. Unit of analysis</h2>
+      <p>The unit of analysis is the county. County-level analysis allows FEMA risk, EPA air quality, CDC PLACES health outcomes, and ACS adaptive-capacity variables to be harmonized using county FIPS codes.</p>
+    </section>
+
+    <section class="panel">
+      <h2>3. Domains</h2>
+      <p><strong>Climate/natural hazard burden</strong> uses FEMA National Risk Index indicators such as risk score, expected annual loss score, social vulnerability score, and hazard-specific fields when available. <strong>Air pollution exposure</strong> uses EPA AirData indicators such as AQI, PM2.5, ozone, and unhealthy air days. <strong>Health vulnerability</strong> uses CDC PLACES measures such as asthma, COPD, coronary heart disease, poor physical health, poor mental health, and depression. <strong>Adaptive capacity deficit</strong> combines vulnerability variables such as poverty, uninsured rate, older population, limited vehicle access, limited internet access, renter share, and the inverse of community resilience where available.</p>
+    </section>
+
+    <section class="panel">
+      <h2>4. Index construction</h2>
+      <p>Each variable is converted to a national percentile rank. Higher percentiles indicate greater burden, vulnerability, or adaptive-capacity deficit. Domain scores are calculated as averages of percentile-ranked variables. The final Environmental Health Adaptation Gap Index is calculated as:</p>
+      <pre><code>EHAGI = 0.30(Climate/Natural Hazard Burden)
+      + 0.25(Air Pollution Exposure)
+      + 0.25(Health Vulnerability)
+      + 0.20(Adaptive Capacity Deficit)</code></pre>
+    </section>
+
+    <section class="panel">
+      <h2>5. Interpretation</h2>
+      <p>A higher EHAGI score means a county has a stronger overlap of environmental-health risk and weaker adaptive capacity. The index is not a causal estimate and should not be interpreted as evidence that environmental exposures caused health outcomes.</p>
+    </section>
+
+    <section class="panel">
+      <h2>6. Suggested empirical extension</h2>
+      <p>A PhD paper can use the dashboard as data infrastructure. A first paper can describe where adaptation gaps are concentrated and how they differ by state, region, and rural/urban status. A later causal paper could evaluate whether adaptation funding, air pollution regulation, disaster-preparedness grants, or infrastructure investments reduce measured adaptation gaps over time.</p>
+    </section>
+  </main>
+</body>
+</html>

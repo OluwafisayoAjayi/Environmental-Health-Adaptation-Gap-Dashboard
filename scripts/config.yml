@@ -1,0 +1,37 @@
+years:
+  airdata: 2024
+  acs: 2024
+  county_shapes: 2024
+  places_release: 2025
+  nri_release: "latest"
+
+sources:
+  # FEMA National Risk Index Counties ArcGIS item. The script discovers the service URL and queries the county layer.
+  nri_counties_item_api: "https://www.arcgis.com/sharing/rest/content/items/39485e8035d446a5bff03259508ae355?f=json"
+
+  # EPA AirData annual summary files.
+  airdata_annual_aqi_by_county: "https://aqs.epa.gov/aqsweb/airdata/annual_aqi_by_county_{year}.zip"
+  airdata_annual_conc_by_monitor: "https://aqs.epa.gov/aqsweb/airdata/annual_conc_by_monitor_{year}.zip"
+
+  # CDC PLACES county data, GIS-friendly format.
+  places_county_csv: "https://data.cdc.gov/resource/i46a-9kgh.csv?$limit=50000"
+
+  # ACS 5-year profile API.
+  acs_profile_api: "https://api.census.gov/data/{year}/acs/acs5/profile"
+
+  # ACS 5-year detailed API for adaptive-capacity variables not in profile tables.
+  acs_detail_api: "https://api.census.gov/data/{year}/acs/acs5"
+
+  # Census county cartographic boundary file.
+  county_shapes_zip: "https://www2.census.gov/geo/tiger/GENZ{year}/shp/cb_{year}_us_county_500k.zip"
+
+index_weights:
+  climate_hazard_burden: 0.30
+  air_pollution_exposure: 0.25
+  health_vulnerability: 0.25
+  adaptive_capacity_deficit: 0.20
+
+output:
+  county_csv: "docs/data/dashboard_county_latest.csv"
+  metadata_json: "docs/data/dashboard_metadata.json"
+  dictionary_csv: "docs/data/data_dictionary.csv"
