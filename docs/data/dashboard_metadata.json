@@ -1,6 +1,19 @@
 {
-  "built_at_utc": "demo-preview",
-  "rows": 10,
-  "interpretation": "Demo preview data only. Run the GitHub Action to pull current public datasets.",
-  "warnings": ["This file is a preview placeholder. Do not cite it as empirical results."]
+  "built_at_utc": "2026-06-30T18:19:13.119202+00:00",
+  "airdata_year": 2024,
+  "acs_year": 2024,
+  "places_release": 2025,
+  "nri_release": "latest",
+  "county_shapes_year": 2024,
+  "rows": 3244,
+  "sources_loaded": [
+    "nri",
+    "airdata",
+    "places",
+    "county_centroids"
+  ],
+  "warnings": [
+    "acs: no usable rows returned"
+  ],
+  "interpretation": "EHAGI is a screening index, not a causal health-impact estimate."
 }

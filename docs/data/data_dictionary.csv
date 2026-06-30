@@ -4,9 +4,25 @@ county_name,County name
 state,State abbreviation
 lat,County representative latitude
 lon,County representative longitude
-climate_hazard_burden,Percentile-based climate/natural hazard score
-air_pollution_exposure,Percentile-based air pollution score
-health_vulnerability,Percentile-based health vulnerability score
-adaptive_capacity_deficit,Percentile-based adaptive capacity deficit score
+risk_score,FEMA National Risk Index composite risk score where available
+expected_annual_loss_score,FEMA National Risk Index expected annual loss score where available
+social_vulnerability_score,FEMA National Risk Index social vulnerability score where available
+community_resilience_score,FEMA National Risk Index community resilience score where available
+max_aqi,EPA AirData maximum annual AQI
+pm25_mean,Mean annual PM2.5 concentration across county monitors
+ozone_mean,Mean annual ozone concentration across county monitors
+asthma_prev,CDC PLACES asthma prevalence
+copd_prev,CDC PLACES COPD prevalence
+chd_prev,CDC PLACES coronary heart disease prevalence
+poor_physical_health_prev,CDC PLACES poor physical health prevalence
+poor_mental_health_prev,CDC PLACES poor mental health prevalence
+poverty_rate,ACS poverty rate
+uninsured_rate,ACS uninsured rate
+no_vehicle_share,ACS share of households without a vehicle
+no_internet_share,ACS share of households without internet subscription
+climate_hazard_burden,Percentile-based climate/natural hazard domain score
+air_pollution_exposure,Percentile-based air pollution domain score
+health_vulnerability,Percentile-based health vulnerability domain score
+adaptive_capacity_deficit,Percentile-based adaptive capacity deficit domain score
 ehagi,Environmental Health Adaptation Gap Index
 priority_group,Policy screening category
