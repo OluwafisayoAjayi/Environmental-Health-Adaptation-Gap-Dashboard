@@ -1,5 +1,5 @@
 {
-  "built_at_utc": "2026-06-30T18:43:23.510138+00:00",
+  "built_at_utc": "2026-06-30T19:01:21.648199+00:00",
   "airdata_year": 2024,
   "acs_year": 2024,
   "places_release": 2025,
@@ -10,10 +10,9 @@
     "nri",
     "airdata",
     "places",
+    "acs",
     "county_centroids"
   ],
-  "warnings": [
-    "acs: no usable rows returned"
-  ],
+  "warnings": [],
   "interpretation": "EHAGI is a screening index, not a causal health-impact estimate."
 }
