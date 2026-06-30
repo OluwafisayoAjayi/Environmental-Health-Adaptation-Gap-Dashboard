@@ -29,6 +29,13 @@ STATE_FIPS_TO_ABBR = {
     "49":"UT","50":"VT","51":"VA","53":"WA","54":"WV","55":"WI","56":"WY","60":"AS","66":"GU","69":"MP","72":"PR","78":"VI"
 }
 
+US_50_DC_STATE_ABBRS = {
+    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL", "GA", "HI", "ID", "IL", "IN", "IA",
+    "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM",
+    "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA",
+    "WV", "WI", "WY"
+}
+
 
 def read_config() -> dict[str, Any]:
     with open(ROOT / "scripts" / "config.yml", "r", encoding="utf-8") as f:
@@ -174,51 +181,100 @@ def fetch_acs(cfg: dict[str, Any]) -> pd.DataFrame:
 
 
 def fetch_places(cfg: dict[str, Any]) -> pd.DataFrame:
+    """Download CDC PLACES county health measures.
+
+    The CDC PLACES GIS-friendly file is usually WIDE, with columns such as
+    CASTHMA_CrudePrev, COPD_CrudePrev, CHD_CrudePrev, PHLTH_CrudePrev,
+    MHLTH_CrudePrev, and DEPRESSION_CrudePrev. Some older/open-data tables are
+    LONG, with measureid + data_value. This function supports both formats.
+    """
     try:
         url = cfg["sources"]["places_county_csv"]
         print(f"Downloading CDC PLACES: {url}")
         df = clean_columns(pd.read_csv(io.BytesIO(get_url(url).content), low_memory=False))
-        fips_col = find_col(df, ["locationid", "location_id", "countyfips", "county_fips"])
+
+        fips_col = find_col(df, ["locationid", "location_id", "countyfips", "county_fips", "geolocationid"])
         if fips_col is None:
             print("WARNING places: no county FIPS column found")
             return pd.DataFrame(columns=["county_fips"])
+
         df["county_fips"] = df[fips_col].apply(zfill_fips)
-        name_col = find_col(df, ["locationname", "countyname", "county_name"])
+        name_col = find_col(df, ["locationname", "countyname", "county_name", "name"])
         state_col = find_col(df, ["stateabbr", "state_abbr", "state"])
-        measure_col = find_col(df, ["measureid", "measure_id"])
-        value_col = find_col(df, ["data_value", "datavalue", "value"])
-        type_col = find_col(df, ["data_value_type", "data_value_typeid"])
-        wanted = {
-            "CASTHMA": "asthma_prev",
-            "COPD": "copd_prev",
-            "CHD": "chd_prev",
-            "PHLTH": "poor_physical_health_prev",
-            "MHLTH": "poor_mental_health_prev",
-            "DEPRESSION": "depression_prev",
-            "ACCESS2": "uninsured_places_prev",
+
+        # Start with one row per county.
+        out = df[["county_fips"]].dropna().drop_duplicates().copy()
+
+        # -------- WIDE GIS-friendly format, e.g. CASTHMA_CrudePrev --------
+        wide_candidates = {
+            "asthma_prev": ["casthma_crudeprev", "asthma_crudeprev", "current_asthma_crudeprev"],
+            "copd_prev": ["copd_crudeprev"],
+            "chd_prev": ["chd_crudeprev"],
+            "poor_physical_health_prev": ["phlth_crudeprev"],
+            "poor_mental_health_prev": ["mhlth_crudeprev"],
+            "depression_prev": ["depression_crudeprev"],
+            "uninsured_places_prev": ["access2_crudeprev"],
         }
-        if measure_col and value_col:
-            temp = df.copy()
-            if type_col:
-                crude = temp[type_col].astype(str).str.contains("crude", case=False, na=False)
-                if crude.any():
-                    temp = temp[crude]
-            temp[measure_col] = temp[measure_col].astype(str).str.upper()
-            temp[value_col] = pd.to_numeric(temp[value_col], errors="coerce")
-            temp = temp[temp[measure_col].isin(wanted.keys())].copy()
-            temp["measure_name_clean"] = temp[measure_col].map(wanted)
-            out = temp.pivot_table(index="county_fips", columns="measure_name_clean", values=value_col, aggfunc="mean").reset_index()
-            out.columns.name = None
-        else:
-            out = df[["county_fips"]].drop_duplicates()
+
+        wide_found = False
+        for new_name, candidates in wide_candidates.items():
+            col = find_col(df, candidates)
+            if col:
+                wide_found = True
+                small = df[["county_fips", col]].dropna(subset=["county_fips"]).drop_duplicates("county_fips")
+                small = small.rename(columns={col: new_name})
+                small[new_name] = pd.to_numeric(small[new_name], errors="coerce")
+                out = out.merge(small, on="county_fips", how="left")
+
+        # -------- LONG format, e.g. measureid + data_value --------
+        # If the wide columns were not present, try long-format parsing.
+        if not wide_found:
+            measure_col = find_col(df, ["measureid", "measure_id"])
+            value_col = find_col(df, ["data_value", "datavalue", "value"])
+            type_col = find_col(df, ["data_value_type", "data_value_typeid"])
+            wanted = {
+                "CASTHMA": "asthma_prev",
+                "COPD": "copd_prev",
+                "CHD": "chd_prev",
+                "PHLTH": "poor_physical_health_prev",
+                "MHLTH": "poor_mental_health_prev",
+                "DEPRESSION": "depression_prev",
+                "ACCESS2": "uninsured_places_prev",
+            }
+            if measure_col and value_col:
+                temp = df.copy()
+                if type_col:
+                    crude = temp[type_col].astype(str).str.contains("crude", case=False, na=False)
+                    if crude.any():
+                        temp = temp[crude]
+                temp[measure_col] = temp[measure_col].astype(str).str.upper()
+                temp[value_col] = pd.to_numeric(temp[value_col], errors="coerce")
+                temp = temp[temp[measure_col].isin(wanted.keys())].copy()
+                temp["measure_name_clean"] = temp[measure_col].map(wanted)
+                long_out = temp.pivot_table(
+                    index="county_fips",
+                    columns="measure_name_clean",
+                    values=value_col,
+                    aggfunc="mean",
+                ).reset_index()
+                long_out.columns.name = None
+                out = out[["county_fips"]].merge(long_out, on="county_fips", how="left")
+            else:
+                print("WARNING places: neither wide health columns nor long measure columns were found")
+
         if name_col:
             names = df[["county_fips", name_col]].dropna().drop_duplicates("county_fips").rename(columns={name_col: "county_name"})
             out = out.merge(names, on="county_fips", how="left")
+
         if state_col:
             states = df[["county_fips", state_col]].dropna().drop_duplicates("county_fips").rename(columns={state_col: "state"})
             out = out.merge(states, on="county_fips", how="left")
-        print(f"Loaded places: {len(out):,} rows")
+
+        health_cols = ["asthma_prev", "copd_prev", "chd_prev", "poor_physical_health_prev", "poor_mental_health_prev", "depression_prev"]
+        found_health = [c for c in health_cols if c in out.columns and pd.to_numeric(out[c], errors="coerce").notna().any()]
+        print(f"Loaded places: {len(out):,} rows; health columns loaded: {found_health}")
         return out
+
     except Exception as e:
         print(f"WARNING places failed: {type(e).__name__}: {e}")
         return pd.DataFrame(columns=["county_fips"])
@@ -526,6 +582,13 @@ def main() -> None:
     if "state_fips" in base.columns:
         base["state"] = base["state"].fillna(base["state_fips"].map(STATE_FIPS_TO_ABBR)).fillna(base["state_fips"])
     base["state"] = base["state"].fillna(base["county_fips"].astype(str).str[:2].map(STATE_FIPS_TO_ABBR))
+
+    # CDC PLACES county health measures are for the 50 states and DC. Keeping the
+    # dashboard to 50 states + DC prevents territories with missing health fields
+    # from dominating the top adaptation-gap table.
+    before_filter = len(base)
+    base = base[base["state"].isin(US_50_DC_STATE_ABBRS)].copy()
+    print(f"Filtered to 50 states + DC: {len(base):,} rows kept out of {before_filter:,}")
 
     for required in ["lat", "lon"]:
         if required not in base.columns:
