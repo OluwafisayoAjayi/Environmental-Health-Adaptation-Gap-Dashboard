@@ -118,66 +118,84 @@ def fetch_county_centroids(cfg: dict[str, Any]) -> pd.DataFrame:
 
 
 def fetch_acs(cfg: dict[str, Any]) -> pd.DataFrame:
-    """ACS variables for adaptive capacity: poverty, uninsured, older population, limited vehicle access, limited internet, renter share."""
-    try:
-        year = cfg["years"].get("acs", 2024)
+    """ACS variables for adaptive capacity.
+
+    This function is deliberately defensive because the Census API can return an
+    HTML/error response or reject one variable while accepting the rest. It tries
+    the configured ACS year first, then falls back to earlier recent ACS 5-year
+    releases.
+    """
+    configured_year = int(cfg["years"].get("acs", 2024))
+    candidate_years = []
+    for y in [configured_year, configured_year - 1, configured_year - 2, 2023, 2022]:
+        if y not in candidate_years and y >= 2020:
+            candidate_years.append(y)
+
+    profile_var_groups = [
+        ["NAME", "DP05_0001E", "DP03_0128PE", "DP03_0099PE", "DP04_0046PE", "DP05_0024PE"],
+        ["NAME", "DP05_0001E", "DP03_0128PE", "DP04_0046PE", "DP05_0024PE"],
+        ["NAME", "DP05_0001E"],
+    ]
+
+    for year in candidate_years:
         profile_base = cfg["sources"]["acs_profile_api"].format(year=year)
-        detail_base = cfg["sources"]["acs_detail_api"].format(year=year)
+        detail_base = cfg["sources"].get("acs_detail_api", "https://api.census.gov/data/{year}/acs/acs5").format(year=year)
 
-        # Data Profile variables.
-        profile_vars = [
-            "NAME",
-            "DP05_0001E",   # population
-            "DP03_0128PE",  # poverty rate
-            "DP03_0099PE",  # uninsured rate
-            "DP04_0046PE",  # renter share
-            "DP05_0024PE",  # 65+ share, if available
-        ]
-        params = {"get": ",".join(profile_vars), "for": "county:*"}
-        print(f"Downloading ACS profile: {profile_base}")
-        res = requests.get(profile_base, params=params, timeout=180)
-        res.raise_for_status()
-        data = res.json()
-        prof = clean_columns(pd.DataFrame(data[1:], columns=data[0]))
-        prof["county_fips"] = prof["state"].astype(str).str.zfill(2) + prof["county"].astype(str).str.zfill(3)
-        rename = {
-            "name": "acs_name",
-            "dp05_0001e": "population",
-            "dp03_0128pe": "poverty_rate",
-            "dp03_0099pe": "uninsured_rate",
-            "dp04_0046pe": "renter_share",
-            "dp05_0024pe": "age65plus_share",
-        }
-        keep = ["county_fips"] + [c for c in rename if c in prof.columns]
-        out = prof[keep].rename(columns=rename)
+        for profile_vars in profile_var_groups:
+            try:
+                print(f"Downloading ACS profile {year}: {profile_base}")
+                params = {"get": ",".join(profile_vars), "for": "county:*"}
+                res = requests.get(profile_base, params=params, timeout=180)
+                res.raise_for_status()
+                data = res.json()
+                if not isinstance(data, list) or len(data) < 2:
+                    raise RuntimeError("ACS profile returned no rows")
 
-        # Detail table variables: no vehicle, no internet. These may fail if release schema changes.
-        try:
-            detail_vars = ["NAME", "B08201_002E", "B08201_001E", "B28002_013E", "B28002_001E"]
-            params2 = {"get": ",".join(detail_vars), "for": "county:*"}
-            print(f"Downloading ACS detail: {detail_base}")
-            res2 = requests.get(detail_base, params=params2, timeout=180)
-            res2.raise_for_status()
-            data2 = res2.json()
-            det = clean_columns(pd.DataFrame(data2[1:], columns=data2[0]))
-            det["county_fips"] = det["state"].astype(str).str.zfill(2) + det["county"].astype(str).str.zfill(3)
-            for c in ["b08201_002e", "b08201_001e", "b28002_013e", "b28002_001e"]:
-                if c in det.columns:
-                    det[c] = pd.to_numeric(det[c], errors="coerce")
-            det["no_vehicle_share"] = np.where(det.get("b08201_001e", np.nan) > 0, det.get("b08201_002e", np.nan) / det.get("b08201_001e", np.nan) * 100, np.nan)
-            det["no_internet_share"] = np.where(det.get("b28002_001e", np.nan) > 0, det.get("b28002_013e", np.nan) / det.get("b28002_001e", np.nan) * 100, np.nan)
-            out = out.merge(det[["county_fips", "no_vehicle_share", "no_internet_share"]], on="county_fips", how="left")
-        except Exception as e:
-            print(f"WARNING ACS detail failed; continuing with profile variables only: {type(e).__name__}: {e}")
+                prof = clean_columns(pd.DataFrame(data[1:], columns=data[0]))
+                prof["county_fips"] = prof["state"].astype(str).str.zfill(2) + prof["county"].astype(str).str.zfill(3)
+                rename = {
+                    "name": "acs_name",
+                    "dp05_0001e": "population",
+                    "dp03_0128pe": "poverty_rate",
+                    "dp03_0099pe": "uninsured_rate",
+                    "dp04_0046pe": "renter_share",
+                    "dp05_0024pe": "age65plus_share",
+                }
+                keep = ["county_fips"] + [c for c in rename if c in prof.columns]
+                out = prof[keep].rename(columns=rename)
 
-        for c in out.columns:
-            if c not in ["county_fips", "acs_name"]:
-                out[c] = pd.to_numeric(out[c], errors="coerce")
-        print(f"Loaded acs: {len(out):,} rows")
-        return out
-    except Exception as e:
-        print(f"WARNING acs failed: {type(e).__name__}: {e}")
-        return pd.DataFrame(columns=["county_fips"])
+                # Optional detail table variables: no vehicle and no internet.
+                try:
+                    detail_vars = ["NAME", "B08201_002E", "B08201_001E", "B28002_013E", "B28002_001E"]
+                    print(f"Downloading ACS detail {year}: {detail_base}")
+                    params2 = {"get": ",".join(detail_vars), "for": "county:*"}
+                    res2 = requests.get(detail_base, params=params2, timeout=180)
+                    res2.raise_for_status()
+                    data2 = res2.json()
+                    det = clean_columns(pd.DataFrame(data2[1:], columns=data2[0]))
+                    det["county_fips"] = det["state"].astype(str).str.zfill(2) + det["county"].astype(str).str.zfill(3)
+                    for c in ["b08201_002e", "b08201_001e", "b28002_013e", "b28002_001e"]:
+                        if c in det.columns:
+                            det[c] = pd.to_numeric(det[c], errors="coerce")
+                    det["no_vehicle_share"] = np.where(det.get("b08201_001e", np.nan) > 0, det.get("b08201_002e", np.nan) / det.get("b08201_001e", np.nan) * 100, np.nan)
+                    det["no_internet_share"] = np.where(det.get("b28002_001e", np.nan) > 0, det.get("b28002_013e", np.nan) / det.get("b28002_001e", np.nan) * 100, np.nan)
+                    out = out.merge(det[["county_fips", "no_vehicle_share", "no_internet_share"]], on="county_fips", how="left")
+                except Exception as e:
+                    print(f"WARNING ACS detail failed for {year}; continuing with profile variables only: {type(e).__name__}: {e}")
+
+                for c in out.columns:
+                    if c not in ["county_fips", "acs_name"]:
+                        out[c] = pd.to_numeric(out[c], errors="coerce")
+                out["acs_year_used"] = year
+                print(f"Loaded acs: {len(out):,} rows from ACS {year}")
+                return out
+
+            except Exception as e:
+                print(f"WARNING ACS profile failed for {year} with variables {profile_vars}: {type(e).__name__}: {e}")
+                continue
+
+    print("WARNING acs failed: all ACS fallback attempts failed")
+    return pd.DataFrame(columns=["county_fips"])
 
 
 def fetch_places(cfg: dict[str, Any]) -> pd.DataFrame:
@@ -586,13 +604,22 @@ def main() -> None:
     # CDC PLACES county health measures are for the 50 states and DC. Keeping the
     # dashboard to 50 states + DC prevents territories with missing health fields
     # from dominating the top adaptation-gap table.
-    before_filter = len(base)
-    base = base[base["state"].isin(US_50_DC_STATE_ABBRS)].copy()
-    print(f"Filtered to 50 states + DC: {len(base):,} rows kept out of {before_filter:,}")
-
     for required in ["lat", "lon"]:
         if required not in base.columns:
             base[required] = np.nan
+
+    before_filter = len(base)
+    base = base[base["state"].isin(US_50_DC_STATE_ABBRS)].copy()
+
+    # Drop legacy/unmatched county records that do not exist in the current Census
+    # county boundary file. This removes old Connecticut county records from NRI
+    # while keeping the current CT planning regions used by 2024 Census boundaries.
+    before_geometry_filter = len(base)
+    base = base[base["lat"].notna() & base["lon"].notna()].copy()
+    print(
+        f"Filtered to 50 states + DC with current county geometry: {len(base):,} rows kept "
+        f"out of {before_filter:,}; dropped {before_geometry_filter - len(base):,} unmatched legacy rows"
+    )
 
     out = build_index(base, cfg.get("index_weights", {}))
     priority_cols = [
